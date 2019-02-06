@@ -7,14 +7,14 @@ namespace QueryInterception
 {
     public sealed class DebugTextWriter : StreamWriter
     {
-        public DebugTextWriter(string category = null) : base(new DebugTextWriter.DebugOutStream(category), System.Text.Encoding.Unicode, 1024)
+        public DebugTextWriter(string category = null) : base(new DebugOutStream(category), System.Text.Encoding.Unicode, 1024)
         {
             this.AutoFlush = true;
         }
 
         private class DebugOutStream : Stream
         {
-            private readonly string _category;
+            readonly string _category;
 
             public override bool CanRead
             {
@@ -89,11 +89,11 @@ namespace QueryInterception
             {
                 if (!string.IsNullOrEmpty(this._category))
                 {
-                    Debug.Write(System.Text.Encoding.Unicode.GetString(buffer, offset, count));
+                    Debug.Write(Encoding.Unicode.GetString(buffer, offset, count));
                 }
                 else
                 {
-                    Debug.Write(System.Text.Encoding.Unicode.GetString(buffer, offset, count), this._category);
+                    Debug.Write(Encoding.Unicode.GetString(buffer, offset, count), this._category);
                 }
             }
         }

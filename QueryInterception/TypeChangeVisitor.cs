@@ -13,23 +13,15 @@ namespace QueryInterception
 {
     public class TypeChangeVisitor : ExpressionVisitor
     {
-        private readonly IDictionary<Type, Type> _typeReplacements;
+        readonly IDictionary<Type, Type> _typeReplacements;
 
-        private int visitStack = 0;
+        int visitStack;
 
-        private readonly Dictionary<ParameterExpression, ParameterExpression> paramMappings = new Dictionary<ParameterExpression, ParameterExpression>();
+        readonly Dictionary<ParameterExpression, ParameterExpression> paramMappings = new Dictionary<ParameterExpression, ParameterExpression>();
 
-        public NewExpression LastNew
-        {
-            get;
-            private set;
-        }
+        public NewExpression LastNew { get; private set; }
 
-        public NewExpression LastNewResult
-        {
-            get;
-            private set;
-        }
+        public NewExpression LastNewResult { get; private set; }
 
         public TypeChangeVisitor(IDictionary<Type, Type> typeReplacements)
         {
@@ -58,7 +50,7 @@ namespace QueryInterception
 
         private bool NeedsTypeChange(Type t)
         {
-            bool hasBadType = this._typeReplacements.Keys.Any<Type>((Type k) => t.FullName.Contains(k.FullName));
+            bool hasBadType = this._typeReplacements.Keys.Any(k => t.FullName.Contains(k.FullName));
             return hasBadType;
         }
 
@@ -74,12 +66,12 @@ namespace QueryInterception
         private MethodCallExpression TransformMethodCall(MethodCallExpression node)
         {
             Debug.Assert(node.Method != null);
-            Type[] argTypes = this.TransformMethodArgs(node.Method).ToArray<Type>();
-            Debug.Assert(!argTypes.Any<Type>(new Func<Type, bool>(this.NeedsTypeChange)));
+            Type[] argTypes = this.TransformMethodArgs(node.Method).ToArray();
+            Debug.Assert(!argTypes.Any(new Func<Type, bool>(this.NeedsTypeChange)));
             Expression[] argParams = (
                 from n in node.Arguments
-                select this.Visit(n)).ToArray<Expression>();
-            Debug.Assert(!argParams.Any<Expression>((Expression a) => this.NeedsTypeChange(a.Type)));
+                select this.Visit(n)).ToArray();
+            Debug.Assert(!argParams.Any((Expression a) => this.NeedsTypeChange(a.Type)));
             MethodInfo methodInfo = node.Method.GetGenericMethodDefinition().MakeGenericMethod(argTypes);
             Debug.Assert(!this.NeedsTypeChange(methodInfo.DeclaringType));
             MethodCallExpression visited = Expression.Call(node.Object, methodInfo, argParams);
@@ -93,24 +85,24 @@ namespace QueryInterception
             IEnumerable<Expression> argParams =
                 from n in node.Arguments
                 select this.Visit(n);
-            Debug.Assert(!argParams.Any<Expression>((Expression a) => this.NeedsTypeChange(a.Type)));
+            Debug.Assert(!argParams.Any((Expression a) => this.NeedsTypeChange(a.Type)));
             ConstructorInfo constructor = node.Constructor;
-            if ((!constructor.DeclaringType.IsGenericType ? false : constructor.DeclaringType.GetGenericArguments().Any<Type>(new Func<Type, bool>(this.NeedsTypeChange))))
+            if ((!constructor.DeclaringType.IsGenericType ? false : constructor.DeclaringType.GetGenericArguments().Any(this.NeedsTypeChange)))
             {
                 Type newType = this.VisitType(constructor.DeclaringType);
                 Debug.Assert(!this.NeedsTypeChange(newType));
                 Type[] constructorTypes = (
                     from s in constructor.GetParameters()
-                    select s.ParameterType).Select<Type, Type>(new Func<Type, Type>(this.VisitType)).ToArray<Type>();
-                Debug.Assert(!constructorTypes.Any<Type>(new Func<Type, bool>(this.NeedsTypeChange)));
+                    select s.ParameterType).Select(this.VisitType).ToArray();
+                Debug.Assert(!constructorTypes.Any(this.NeedsTypeChange));
                 constructor = newType.GetConstructor(constructorTypes);
                 Debug.Assert(!this.NeedsTypeChange(constructor.DeclaringType));
             }
             ReadOnlyCollection<MemberInfo> memberInfos = node.Members;
             MemberInfo[] memberInfoArray = constructor.DeclaringType.GetMembers();
-            Func<MemberInfo, string> name = (MemberInfo fMember) => fMember.Name;
-            Func<MemberInfo, string> func = (MemberInfo nMember) => nMember.Name;
-            IEnumerable<MemberInfo> members = memberInfos.Join<MemberInfo, MemberInfo, string, MemberInfo>(memberInfoArray, name, func, (MemberInfo fMember, MemberInfo nMember) => nMember);
+            Func<MemberInfo, string> getName = fMember => fMember.Name;
+
+            IEnumerable<MemberInfo> members = memberInfos.Join(memberInfoArray, getName, getName, (_, nMember) => nMember);
             MemberInfo[] membersTransformed = members.ToArray<MemberInfo>();
             NewExpression visited = Expression.New(constructor, argParams, membersTransformed);
             Debug.Assert(visited.Members.Count == node.Members.Count);
@@ -127,7 +119,7 @@ namespace QueryInterception
                 TypeChangeVisitor typeChangeVisitor = this;
                 typeChangeVisitor.visitStack = typeChangeVisitor.visitStack + 1;
                 found = base.Visit(node);
-                Debug.Assert((found == null ? true : !this.NeedsTypeChange(found.Type)));
+                Debug.Assert(found == null || !this.NeedsTypeChange(found.Type));
                 TypeChangeVisitor typeChangeVisitor1 = this;
                 typeChangeVisitor1.visitStack = typeChangeVisitor1.visitStack - 1;
                 expression = found;

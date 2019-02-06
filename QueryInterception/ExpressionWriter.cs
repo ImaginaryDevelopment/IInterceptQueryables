@@ -15,27 +15,15 @@ namespace QueryInterception
 {
     public class ExpressionWriter : IqExpressionVisitor
     {
-        private readonly TextWriter writer;
+        readonly TextWriter writer;
 
-        private int indent = 2;
+        int depth;
 
-        private int depth;
+        readonly static char[] splitters;
 
-        private readonly static char[] splitters;
+        readonly static char[] special;
 
-        private readonly static char[] special;
-
-        protected int IndentationWidth
-        {
-            get
-            {
-                return this.indent;
-            }
-            set
-            {
-                this.indent = value;
-            }
-        }
+        protected int IndentationWidth { get; set; } = 2;
 
         static ExpressionWriter()
         {
@@ -200,7 +188,7 @@ namespace QueryInterception
             }
             if ((type.IsGenericType ? true : type.IsGenericTypeDefinition))
             {
-                StringBuilder sb = new StringBuilder();
+                var sb = new StringBuilder();
                 sb.Append(name);
                 sb.Append("<");
                 Type[] args = type.GetGenericArguments();
@@ -670,7 +658,7 @@ namespace QueryInterception
             this.writer.WriteLine();
             this.Indent(style);
             int i = 0;
-            int n = this.depth * this.indent;
+            int n = this.depth * this.IndentationWidth;
             while (i < n)
             {
                 this.writer.Write(" ");
